@@ -5,18 +5,22 @@ use crate::model::stations::{
 use axum::{extract, Json};
 use http::StatusCode;
 use sqlx::postgres::PgPoolOptions;
-use sqlx::{Postgres, QueryBuilder};
+use sqlx::{Pool, Postgres, QueryBuilder};
+
+fn connection_url() -> &'static str {
+    "postgresql://root@127.0.0.1:26257/stations"
+}
 
 pub async fn get_stations() -> Result<Json<PagedStations>, StatusCode> {
     let pool = PgPoolOptions::new()
         .max_connections(2)
-        .connect("postgresql://root@127.0.0.1:26257/stations")
+        .connect(connection_url())
         .await
         .unwrap();
 
     let stations: Vec<StationInformation> =
         sqlx::query_as("SELECT * FROM information LIMIT $1 OFFSET $2")
-            .bind(10)
+            .bind(1000)
             .bind(0)
             .fetch_all(&pool)
             .await
@@ -36,7 +40,7 @@ pub async fn get_station_status(
 ) -> Result<Json<StationStatus>, StatusCode> {
     let pool = PgPoolOptions::new()
         .max_connections(2)
-        .connect("postgresql://root@127.0.0.1:26257/stations")
+        .connect(connection_url())
         .await
         .unwrap();
 
@@ -50,36 +54,34 @@ pub async fn get_station_status(
     Ok(Json(status))
 }
 
-pub async fn ingest_data(Json(gbfs_body): Json<Gbfs>) -> Result<String, StatusCode> {
+fn extract_feed_urls(gbfs_body: Gbfs) -> (String, String) {
     let name_urls = gbfs_body.data.unwrap().en.unwrap().feeds.unwrap();
     let mut info_url: Option<String> = None;
     let mut status_url: Option<String> = None;
     for name_url in name_urls {
-        let name = name_url.name.unwrap();
-        if name == "station_information" {
-            info_url = Some(name_url.url.unwrap());
-        } else if name == "station_status" {
-            status_url = Some(name_url.url.unwrap());
+        if let Some(name) = name_url.name {
+            if name == "station_information" {
+                info_url = Some(name_url.url.unwrap());
+            } else if name == "station_status" {
+                status_url = Some(name_url.url.unwrap());
+            }
         }
     }
-    // println!("Ingesting: info URL: {}, status URL {}", &info_url.unwrap(), &status_url.unwrap());
 
-    let pool = PgPoolOptions::new()
-        .max_connections(2)
-        .connect("postgresql://root@127.0.0.1:26257/stations")
-        .await
-        .unwrap();
+    (info_url.unwrap(), status_url.unwrap())
+}
 
+async fn ingest_station_info(pool: &Pool<Postgres>, info_url: String) -> Result<u64, StatusCode> {
     // Insert data for station_information
     let mut info_list: StationInformationList = Default::default();
-    match reqwest::get(info_url.unwrap().as_str()).await {
+    match reqwest::get(info_url.as_str()).await {
         Ok(resp) => {
             let text = resp.text().await.unwrap();
             info_list = serde_json::from_str(&text).unwrap();
-            // println!("{:?}", status);
         }
         Err(_) => {
-            panic!("Could not read data from remote JSON.");
+            eprintln!("Could not read data from remote station_information JSON.");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -96,20 +98,23 @@ pub async fn ingest_data(Json(gbfs_body): Json<Gbfs>) -> Result<String, StatusCo
     });
 
     let query = query_builder.build();
-    let result_information = query.execute(&pool).await.unwrap();
 
+    Ok(query.execute(pool).await.unwrap().rows_affected())
+}
+
+async fn ingest_station_status(pool: &Pool<Postgres>, url: String) -> Result<u64, StatusCode> {
     let mut query_builder: QueryBuilder<Postgres> =
         QueryBuilder::new("INSERT INTO status(station_id, is_returning, is_renting, is_installed, num_docks_available, num_bikes_available, last_reported) ");
 
     let mut status_list: StationStatusList = Default::default();
-    match reqwest::get(status_url.unwrap().as_str()).await {
+    match reqwest::get(url.as_str()).await {
         Ok(resp) => {
             let text = resp.text().await.unwrap();
             status_list = serde_json::from_str(&text).unwrap();
-            // println!("{:?}", status);
         }
         Err(_) => {
-            panic!("Could not read data from remote JSON.");
+            eprintln!("Could not read data from remote station_status JSON.");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -125,11 +130,24 @@ pub async fn ingest_data(Json(gbfs_body): Json<Gbfs>) -> Result<String, StatusCo
     });
 
     let query = query_builder.build();
-    let result_status = query.execute(&pool).await.unwrap();
+
+    Ok(query.execute(pool).await.unwrap().rows_affected())
+}
+
+pub async fn ingest_data(Json(gbfs_body): Json<Gbfs>) -> Result<String, StatusCode> {
+    let (info_url, status_url) = extract_feed_urls(gbfs_body);
+
+    let pool = PgPoolOptions::new()
+        .max_connections(2)
+        .connect(connection_url())
+        .await
+        .unwrap();
+
+    let station_info_rows = ingest_station_info(&pool, info_url).await.unwrap();
+    let station_status_rows = ingest_station_status(&pool, status_url).await.unwrap();
 
     Ok(format!(
-        "Inserted {} Information rows, {} Status rows",
-        result_status.rows_affected(),
-        result_information.rows_affected()
+        "Inserted {} station_information rows, {} station_status rows",
+        station_info_rows, station_status_rows
     ))
 }

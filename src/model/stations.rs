@@ -1,48 +1,48 @@
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
 pub struct StationInformation {
-    pub(crate) id: String,
-    pub(crate) name: Option<String>,
-    pub(crate) address: Option<String>,
-    pub(crate) latitude: Option<f64>,
-    pub(crate) longitude: Option<f64>,
+    pub id: String,
+    pub name: Option<String>,
+    pub address: Option<String>,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
 }
 
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct StationInformationJson {
-    pub(crate) station_id: String,
-    pub(crate) name: Option<String>,
-    pub(crate) address: Option<String>,
-    pub(crate) lat: Option<f64>,
-    pub(crate) lon: Option<f64>,
+    pub station_id: String,
+    pub name: Option<String>,
+    pub address: Option<String>,
+    pub lat: Option<f64>,
+    pub lon: Option<f64>,
 }
 
 #[derive(Default, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
 pub struct PagedStations {
-    pub(crate) stations: Vec<StationInformation>,
-    pub(crate) page: i64,
-    pub(crate) total_pages: i64,
+    pub stations: Vec<StationInformation>,
+    pub page: i64,
+    pub total_pages: i64,
 }
 
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
 pub struct StationStatus {
-    pub(crate) station_id: String,
-    pub(crate) is_returning: Option<bool>,
-    pub(crate) is_renting: Option<bool>,
-    pub(crate) is_installed: Option<bool>,
-    pub(crate) num_docks_available: Option<i64>,
-    pub(crate) num_bikes_available: Option<i64>,
-    pub(crate) last_reported: Option<chrono::NaiveDateTime>,
+    pub station_id: String,
+    pub is_returning: Option<bool>,
+    pub is_renting: Option<bool>,
+    pub is_installed: Option<bool>,
+    pub num_docks_available: Option<i64>,
+    pub num_bikes_available: Option<i64>,
+    pub last_reported: Option<chrono::NaiveDateTime>,
 }
 
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct StationStatusJson {
-    pub(crate) station_id: String,
-    pub(crate) is_returning: Option<i64>,
-    pub(crate) is_renting: Option<i64>,
-    pub(crate) is_installed: Option<i64>,
-    pub(crate) num_docks_available: Option<i64>,
-    pub(crate) num_bikes_available: Option<i64>,
-    pub(crate) last_reported: Option<i64>,
+    pub station_id: String,
+    pub is_returning: Option<i64>,
+    pub is_renting: Option<i64>,
+    pub is_installed: Option<i64>,
+    pub num_docks_available: Option<i64>,
+    pub num_bikes_available: Option<i64>,
+    pub last_reported: Option<i64>,
 }
 
 #[derive(Default, serde::Serialize, serde::Deserialize, Debug)]

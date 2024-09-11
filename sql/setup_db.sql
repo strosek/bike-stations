@@ -29,7 +29,7 @@ CREATE TABLE status
 -- INSERT INTO status VALUES ('some-id-02', false, true, true, 5, 3, 1726066159::timestamp);
 
 
-SELECT * FROM information;
-SELECT count(*) FROM information LIMIT 10;
+SELECT * FROM information LIMIT 10;
+SELECT count(*) FROM information;
 SELECT * FROM status LIMIT 10;
 SELECT count(*) FROM status;
