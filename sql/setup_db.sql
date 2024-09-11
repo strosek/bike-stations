@@ -8,8 +8,8 @@ CREATE TABLE information
     id        STRING NOT NULL PRIMARY KEY,
     name      STRING,
     address   STRING,
-    latitude  DECIMAL,
-    longitude DECIMAL
+    latitude  FLOAT,
+    longitude FLOAT
 );
 CREATE TABLE status
 (
