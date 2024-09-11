@@ -8,7 +8,7 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::{Pool, Postgres, QueryBuilder};
 
 fn connection_url() -> &'static str {
-    "postgresql://root@127.0.0.1:26257/stations"
+    "postgresql://root@crdb:26257/stations"
 }
 
 pub async fn get_stations() -> Result<Json<PagedStations>, StatusCode> {

@@ -1,0 +1,37 @@
+version: '3.5'
+services:
+  app:
+    build:
+      context: .  # Directory where Dockerfile for 'app' is located
+      dockerfile: Dockerfile  # Optional: specify the Dockerfile name if it's not 'Dockerfile'
+    image: bike-stations:latest  # Tag for the built image
+    ports:
+      - "3000:3000"
+    depends_on:
+      - crdb
+    networks:
+      - backend-network
+
+  crdb:
+    image: cockroachdb/cockroach:latest
+    ports:
+      - "26257:26257"
+      - "8080:8080"
+    command: start-single-node --insecure
+    volumes:
+      - "${PWD}/cockroach-data/crdb:/cockroach/cockroach-data"
+      - "./sql/setup_db.sql:/setup_db.sql"  # Mount your SQL file into the container
+    networks:
+      - backend-network
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        cockroach start-single-node --insecure &
+        sleep 5  # Wait for the DB to start
+        cockroach sql --insecure --file=/setup_db.sql
+        wait
+
+networks:
+  backend-network:
+    driver: bridge
