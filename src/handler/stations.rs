@@ -1,7 +1,11 @@
-use crate::model::stations::{PagedStations, StationInformation, StationStatus};
+use crate::model::gbfs::Gbfs;
+use crate::model::stations::{
+    PagedStations, StationInformation, StationInformationList, StationStatus, StationStatusList,
+};
 use axum::{extract, Json};
 use http::StatusCode;
 use sqlx::postgres::PgPoolOptions;
+use sqlx::{Postgres, QueryBuilder};
 
 pub async fn get_stations() -> Result<Json<PagedStations>, StatusCode> {
     let pool = PgPoolOptions::new()
@@ -44,4 +48,88 @@ pub async fn get_station_status(
             .unwrap();
 
     Ok(Json(status))
+}
+
+pub async fn ingest_data(Json(gbfs_body): Json<Gbfs>) -> Result<String, StatusCode> {
+    let name_urls = gbfs_body.data.unwrap().en.unwrap().feeds.unwrap();
+    let mut info_url: Option<String> = None;
+    let mut status_url: Option<String> = None;
+    for name_url in name_urls {
+        let name = name_url.name.unwrap();
+        if name == "station_information" {
+            info_url = Some(name_url.url.unwrap());
+        } else if name == "station_status" {
+            status_url = Some(name_url.url.unwrap());
+        }
+    }
+    // println!("Ingesting: info URL: {}, status URL {}", &info_url.unwrap(), &status_url.unwrap());
+
+    let pool = PgPoolOptions::new()
+        .max_connections(2)
+        .connect("postgresql://root@127.0.0.1:26257/stations")
+        .await
+        .unwrap();
+
+    // Insert data for station_information
+    let mut info_list: StationInformationList = Default::default();
+    match reqwest::get(info_url.unwrap().as_str()).await {
+        Ok(resp) => {
+            let text = resp.text().await.unwrap();
+            info_list = serde_json::from_str(&text).unwrap();
+            // println!("{:?}", status);
+        }
+        Err(_) => {
+            panic!("Could not read data from remote JSON.");
+        }
+    }
+
+    let mut query_builder: QueryBuilder<Postgres> =
+        QueryBuilder::new("INSERT INTO information(id, name, address, latitude, longitude) ");
+
+    let info_data = info_list.data.unwrap().stations.unwrap();
+    query_builder.push_values(info_data.into_iter(), |mut b, info| {
+        b.push_bind(info.station_id)
+            .push_bind(info.name)
+            .push_bind(info.address)
+            .push_bind(info.lat)
+            .push_bind(info.lon);
+    });
+
+    let query = query_builder.build();
+    let result_information = query.execute(&pool).await.unwrap();
+
+    let mut query_builder: QueryBuilder<Postgres> =
+        QueryBuilder::new("INSERT INTO status(station_id, is_returning, is_renting, is_installed, num_docks_available, num_bikes_available, last_reported) ");
+
+    let mut status_list: StationStatusList = Default::default();
+    match reqwest::get(status_url.unwrap().as_str()).await {
+        Ok(resp) => {
+            let text = resp.text().await.unwrap();
+            status_list = serde_json::from_str(&text).unwrap();
+            // println!("{:?}", status);
+        }
+        Err(_) => {
+            panic!("Could not read data from remote JSON.");
+        }
+    }
+
+    let status_data = status_list.data.unwrap().stations.unwrap();
+    query_builder.push_values(status_data.into_iter(), |mut b, status| {
+        b.push_bind(status.station_id)
+            .push_bind(status.is_returning)
+            .push_bind(status.is_renting)
+            .push_bind(status.is_installed)
+            .push_bind(status.num_docks_available)
+            .push_bind(status.num_bikes_available)
+            .push_bind(status.last_reported);
+    });
+
+    let query = query_builder.build();
+    let result_status = query.execute(&pool).await.unwrap();
+
+    Ok(format!(
+        "Inserted {} Information rows, {} Status rows",
+        result_status.rows_affected(),
+        result_information.rows_affected()
+    ))
 }
