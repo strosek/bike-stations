@@ -24,7 +24,7 @@ The most important crates this projects uses are:
         DB directly.
   - `model/`
       - `gbfs.rs` - Defines the struct representing the GBFS JSON file used as request body in `/ingest`
-        - `stations.rs` - Defines structs mapping the database tables and JSON objects coming from GBFS URLs
+      - `stations.rs` - Defines structs mapping the database tables and JSON objects coming from GBFS URLs
 - `sql/` - Contains the database configuration
   - `setup_db.sql` - Creates the database and tables. Useful to restore the DB.
 
@@ -39,14 +39,14 @@ docker compose up
 
 ## 🚀 Future improvements
 
-This project was created from scratch with a 4-hours coding time limit without much knowledege of the crates used. This
-left a lot to be done to bring the app to production quality. Among the most important improvements to be done are:
+This project was created from scratch with a 4-hours coding time limit without much familiarity with the crates used.
+This left a lot to be done to bring the app to production quality. Among the most important improvements to be done are:
 
 - [ ] Improve error management, replace unwraps with the right pattern matching and error propagation.
 - [ ] HTTP error codes should be accurate and error messages expressive.
 - [ ] Better organization of database access objects, including pools and configuration.
-- [ ] Database limits should be in place with paging for GET, and setting a limit on how many ROWS can be inserted at
-  once.
+- [ ] Database limits should be in place with paging for GET, and setting a limit for POST on how many rows can be
+  inserted at once.
 - [ ] Proper logging and monitoring should be added.
 - [ ] Tests, and doctests.
 - [ ] Add documentation.
