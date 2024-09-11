@@ -4,3 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+axum = "0.7.5"
+axum-extra = "0.9.3"
+chrono = { version = "0.4.38", features = ["serde"] }
+http = "1.1.0"
+serde = { version = "1.0.209", features = ["derive"] }
+sqlx = { version = "0.8.2" , features = ["postgres", "runtime-tokio-native-tls", "tls-native-tls", "chrono"]}
+tokio = { version = "1.40.0", features = ["rt-multi-thread"] }
+uuid = { version = "1.10.0", features = ["v4"] }
