@@ -44,7 +44,7 @@ curl -v -X POST localhost:3000/ingest -H "Content-Type: application/json" --data
 curl -v -X GET localhost:3000/stations
 ```
 
-To reset the database stopping the containers and run them again:
+To reset the database stop the containers and run them again:
 
 ```bash
 docker compose down
