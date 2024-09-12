@@ -34,6 +34,20 @@ Clone this repo, and run
 ```bash
 git clone https://github.com/strosek/bike-stations.git
 cd bike-stations
+docker compose up --build
+```
+
+Then you can call the service at port `3000`:
+
+```bash
+curl -v -X POST localhost:3000/ingest -H "Content-Type: application/json" --data {<GBFS requset body here>}
+curl -v -X GET localhost:3000/stations
+```
+
+To reset the database stopping the containers and run them again:
+
+```bash
+docker compose down
 docker compose up
 ```
 

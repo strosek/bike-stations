@@ -19,7 +19,7 @@ services:
       - "8080:8080"
     command: start-single-node --insecure
     volumes:
-      - "${PWD}/cockroach-data/crdb:/cockroach/cockroach-data"
+      - "./cockroach-data/crdb:/cockroach/cockroach-data"
       - "./sql/setup_db.sql:/setup_db.sql"  # Mount your SQL file into the container
     networks:
       - backend-network
@@ -28,8 +28,11 @@ services:
       - -c
       - |
         cockroach start-single-node --insecure &
-        sleep 5  # Wait for the DB to start
-        cockroach sql --insecure --file=/setup_db.sql
+        echo "Waiting for CockroachDB to be ready..."
+        until cockroach sql --insecure -e "SELECT 1"; do
+          sleep 1
+        done
+        cockroach sql --insecure --file=/setup_db.sql -d stations
         wait
 
 networks:
