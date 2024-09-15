@@ -3,26 +3,17 @@ use crate::model::stations::{
     PagedStations, StationInformation, StationInformationList, StationStatus, StationStatusList,
 };
 use axum::{extract, Json};
+use axum::extract::State;
 use http::StatusCode;
-use sqlx::postgres::PgPoolOptions;
 use sqlx::{Pool, Postgres, QueryBuilder};
+use crate::AppState;
 
-fn connection_url() -> &'static str {
-    "postgresql://root@crdb:26257/stations"
-}
-
-pub async fn get_stations() -> Result<Json<PagedStations>, StatusCode> {
-    let pool = PgPoolOptions::new()
-        .max_connections(2)
-        .connect(connection_url())
-        .await
-        .unwrap();
-
+pub async fn get_stations(State(state): State<AppState>) -> Result<Json<PagedStations>, StatusCode> {
     let stations: Vec<StationInformation> =
         sqlx::query_as("SELECT * FROM information LIMIT $1 OFFSET $2")
             .bind(1000)
             .bind(0)
-            .fetch_all(&pool)
+            .fetch_all(&state.db_pool)
             .await
             .unwrap();
 
@@ -37,17 +28,12 @@ pub async fn get_stations() -> Result<Json<PagedStations>, StatusCode> {
 
 pub async fn get_station_status(
     extract::Path(station_id): extract::Path<String>,
+    State(state): State<AppState>,
 ) -> Result<Json<StationStatus>, StatusCode> {
-    let pool = PgPoolOptions::new()
-        .max_connections(2)
-        .connect(connection_url())
-        .await
-        .unwrap();
-
     let status: StationStatus =
         sqlx::query_as("SELECT * FROM status WHERE station_id = $1 LIMIT 1")
             .bind(station_id)
-            .fetch_one(&pool)
+            .fetch_one(&state.db_pool)
             .await
             .unwrap();
 
@@ -61,9 +47,9 @@ fn extract_feed_urls(gbfs_body: Gbfs) -> (String, String) {
     for name_url in name_urls {
         if let Some(name) = name_url.name {
             if name == "station_information" {
-                info_url = Some(name_url.url.unwrap());
+                info_url = name_url.url;
             } else if name == "station_status" {
-                status_url = Some(name_url.url.unwrap());
+                status_url = name_url.url;
             }
         }
     }
@@ -134,17 +120,11 @@ async fn ingest_station_status(pool: &Pool<Postgres>, url: String) -> Result<u64
     Ok(query.execute(pool).await.unwrap().rows_affected())
 }
 
-pub async fn ingest_data(Json(gbfs_body): Json<Gbfs>) -> Result<String, StatusCode> {
+pub async fn ingest_data(State(state): State<AppState>, Json(gbfs_body): Json<Gbfs>) -> Result<String, StatusCode> {
     let (info_url, status_url) = extract_feed_urls(gbfs_body);
 
-    let pool = PgPoolOptions::new()
-        .max_connections(2)
-        .connect(connection_url())
-        .await
-        .unwrap();
-
-    let station_info_rows = ingest_station_info(&pool, info_url).await.unwrap();
-    let station_status_rows = ingest_station_status(&pool, status_url).await.unwrap();
+    let station_info_rows = ingest_station_info(&state.db_pool, info_url).await.unwrap();
+    let station_status_rows = ingest_station_status(&state.db_pool, status_url).await.unwrap();
 
     Ok(format!(
         "Inserted {} station_information rows, {} station_status rows",
